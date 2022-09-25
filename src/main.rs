@@ -18,6 +18,7 @@ fn main() {
 
     endwin();
 }
+
 fn start_game(game: &mut Game) {
     for message in game.messages.clone() {
         handle_message(&message, game);
@@ -28,8 +29,7 @@ fn handle_message(message: &Message, game: &mut Game) {
     match message {
         Message::INFO(info) => info_message(info, game),
         Message::QUESTION(question, id) => question_message(question, id, game),
-        // Message::BRANCH(question, branches) => branch_message(question, branches),
-        _ => (),
+        Message::BRANCH(question, branches) => branch_message(question, branches),
     }
 }
 
@@ -53,6 +53,10 @@ fn question_message(question: &String, id: &usize, game: &mut Game) {
     scan(&game.window, &mut responce);
 
     game.states.insert(*id, responce);
+}
+
+fn branch_message(question: &String, branch: &Vec<Branch>) {
+    todo!();
 }
 
 fn tell_info(info: &String, game: &Game) {
@@ -103,8 +107,6 @@ fn handle_states(i: &mut usize, info: &String, game: &Game) -> String {
         else {
             result.write_char(info.chars().nth(*i-1).unwrap()).unwrap();
         }
-
-        if *i >= info.len() { return result; }
     }
     else {
         result.write_char(info.chars().nth(*i-1).unwrap()).unwrap();
