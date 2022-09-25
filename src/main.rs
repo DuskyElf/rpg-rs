@@ -20,11 +20,11 @@ fn main() {
 }
 fn start_game(game: &mut Game) {
     for message in game.messages.clone() {
-        handel_message(&message, game);
+        handle_message(&message, game);
     }
 }
 
-fn handel_message(message: &Message, game: &mut Game) {
+fn handle_message(message: &Message, game: &mut Game) {
     match message {
         Message::INFO(info) => info_message(info, game),
         Message::QUESTION(question, id) => question_message(question, id, game),
@@ -74,7 +74,7 @@ fn parse(info: &String, game: &Game) -> String {
     while i < info.len() {
         let letter = info.chars().nth(i).unwrap();
         if letter == '$' {
-            result += &handel_states(&mut i, info, game);
+            result += &handle_states(&mut i, info, game);
         }
         else {
             result.write_char(letter).unwrap();
@@ -84,7 +84,7 @@ fn parse(info: &String, game: &Game) -> String {
     result
 }
 
-fn handel_states(i: &mut usize, info: &String, game: &Game) -> String {
+fn handle_states(i: &mut usize, info: &String, game: &Game) -> String {
     *i += 1;
     let mut result = String::new();
     if *i < info.len() {
