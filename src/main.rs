@@ -9,10 +9,43 @@ fn main() {
 
     let mut game = Game::new(initscr(), vec![
         Message::INFO("Hello, World! This is just so awesome!!!".to_string()),
-        Message::QUESTION("What is your name?".to_string(), 0),
-        Message::QUESTION("What is your age?".to_string(), 1),
-        Message::INFO("Hi $0, and you are $1 years old!".to_string()),
+        Message::BRANCH(
+            "Which branch?".to_string(), vec![
+                Branch {
+                    option: "first".to_string(),
+                    messages: vec![
+                        Message::QUESTION("What is your name?".to_string(), 0),
+                        Message::QUESTION("What is your age?".to_string(), 1),
+                        Message::INFO("Hi $0, and you are $1 years old!".to_string()),
+                    ]
+                },
+                Branch {
+                    option: "second".to_string(),
+                    messages: vec![
+                        Message::BRANCH(
+                            "Are you 18+ ?".to_string(),
+                            vec![
+                                Branch {
+                                    option: "yes".to_string(),
+                                    messages: vec![
+                                        Message::INFO("Whooo, You can vote!".to_string()),
+                                    ]
+                                },
+                                Branch {
+                                    option: "no".to_string(),
+                                    messages: vec![
+                                        Message::INFO("Sorry, you can't vote!".to_string()),
+                                    ]
+                                }
+                            ]
+                        ),
+                    ]
+                }
+            ]
+        ),
     ]);
+
+    game.window.keypad(true);
 
     start_game(&mut game);
 
@@ -29,7 +62,7 @@ fn handle_message(message: &Message, game: &mut Game) {
     match message {
         Message::INFO(info) => info_message(info, game),
         Message::QUESTION(question, id) => question_message(question, id, game),
-        Message::BRANCH(question, branches) => branch_message(question, branches),
+        Message::BRANCH(question, branches) => branch_message(question, branches, game),
     }
 }
 
@@ -55,8 +88,15 @@ fn question_message(question: &String, id: &usize, game: &mut Game) {
     game.states.insert(*id, responce);
 }
 
-fn branch_message(question: &String, branch: &Vec<Branch>) {
-    todo!();
+fn branch_message(question: &String, branches: &Vec<Branch>, game: &mut Game) {
+    tell_info(question, game);
+    game.window.addstr("\n\n");
+
+    let branch = branch_selection(branches, game);
+
+    for message in branch.messages.iter() {
+        handle_message(&message, game);
+    }
 }
 
 fn tell_info(info: &String, game: &Game) {
@@ -114,27 +154,64 @@ fn handle_states(i: &mut usize, info: &String, game: &Game) -> String {
     result
 }
 
+fn branch_selection<'a>(branches: &'a Vec<Branch>, game: &Game) -> &'a Branch {
+    curs_set(0);
+    noecho();
+    let mut selection = 0;
+    let y = game.window.get_cur_y();
+    let x = game.window.get_cur_x();
+    loop {
+        game.window.mv(y, x);
+        for (i, branch) in branches.iter().enumerate() {
+            if i == selection {
+                game.window.addstr(format!(">[ {} ]\n", branch.option));
+            } else {
+                game.window.addstr(format!("   {}  \n", branch.option));
+            }
+        }
+
+        match game.window.getch().unwrap() {
+            Input::Character('\n') => break, // Enter / Return
+            Input::KeyDown => selection += 1,
+            Input::KeyUp => if selection != 0 {selection -= 1},
+            _ => (),
+        }
+
+        if selection >= branches.len() {
+            selection = branches.len() - 1;
+        }
+    
+    }
+    echo();
+    curs_set(1);
+    branches.get(selection).unwrap()
+}
+
 fn scan(window: &Window, buffer: &mut String) {
     noecho();
     loop {
-        if let Input::Character(read) = window.getch().unwrap() {
-            if read == '\n' {
+        match window.getch().unwrap() {
+            // Enter / Return
+            Input::Character('\n') => {
                 echo();
                 break;
-            }
+            },
 
-            // backspace
-            if read == '\x7f' {
+            Input::KeyBackspace => {
                 if buffer.len() != 0 {
                     buffer.pop();
                     window.mv(window.get_cur_y(), window.get_cur_x() - 1);
                     window.delch();
                 }
                 continue;
-            }
+            },
 
-            window.addch(read);
-            buffer.push(read);
+            Input::Character(read) => {
+                window.addch(read);
+                buffer.push(read);
+            },
+
+            _ => (),
         }
     }
 }

@@ -27,6 +27,6 @@ pub enum Message {
 #[derive(Clone)]
 pub struct Branch {
     pub option: String,
-    pub message: Message,
+    pub messages: Vec<Message>,
 }
 
