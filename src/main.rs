@@ -8,41 +8,26 @@ fn main() {
     raw();
 
     let mut game = Game::new(initscr(), vec![
-        Message::INFO("Hello, World! This is just so awesome!!!".to_string()),
-        Message::BRANCH(
-            "Which branch?".to_string(), vec![
-                Branch {
-                    option: "first".to_string(),
-                    messages: vec![
-                        Message::QUESTION("What is your name?".to_string(), 0),
-                        Message::QUESTION("What is your age?".to_string(), 1),
-                        Message::INFO("Hi $0, and you are $1 years old!".to_string()),
-                    ]
-                },
-                Branch {
-                    option: "second".to_string(),
-                    messages: vec![
-                        Message::BRANCH(
-                            "Are you 18+ ?".to_string(),
-                            vec![
-                                Branch {
-                                    option: "yes".to_string(),
-                                    messages: vec![
-                                        Message::INFO("Whooo, You can vote!".to_string()),
-                                    ]
-                                },
-                                Branch {
-                                    option: "no".to_string(),
-                                    messages: vec![
-                                        Message::INFO("Sorry, you can't vote!".to_string()),
-                                    ]
-                                }
-                            ]
-                        ),
-                    ]
-                }
-            ]
-        ),
+        Message::new_info("Hello, World! This is just so awesome!!!"),
+        Message::new_branch("Which Branch?", vec![
+            Branch::new("first", vec![
+                Message::new_question("What is your name?", 0),
+                Message::new_question("What is your age?", 1),
+                Message::new_info("Hi $0, you are $1 years old!"),
+            ]),
+
+            Branch::new("second", vec![
+                Message::new_branch("Are you 18+ ?", vec![
+                    Branch::new("yes", vec![
+                        Message::new_info("Whooo, You can vote")
+                    ]),
+                    Branch::new("no", vec![
+                        Message::new_info("Sorry, you can't vote")
+                    ]),
+                ])
+            ]),
+
+        ]),
     ]);
 
     game.window.keypad(true);
