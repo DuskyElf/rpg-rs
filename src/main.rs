@@ -1,8 +1,7 @@
 use pancurses::*;
 use std::{thread, time, fmt::Write};
 
-mod models;
-use models::*;
+use rpg_rs::*;
 
 fn main() {
     raw();
