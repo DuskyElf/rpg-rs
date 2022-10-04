@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use pancurses::Window;
 
+pub static DIGITS: [char; 10] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+
 pub struct Game {
     pub window: Window,
     pub messages: Vec<Message>,
@@ -53,3 +55,11 @@ impl Branch {
     }
 }
 
+#[derive(Debug)]
+pub enum TokenType {
+    BrackOpen,              // {
+    BrackClose,             // }
+    LambdaOperator,         // =>
+    Identifier(usize),      // ?0
+    StringLiteral(String),  // ""
+}

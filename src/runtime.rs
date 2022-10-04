@@ -1,4 +1,5 @@
 pub use crate::*;
+use models::DIGITS;
 
 pub fn start_game(game: &mut Game) {
     for message in game.messages.clone() {
@@ -82,23 +83,27 @@ fn handle_states(i: &mut usize, info: &String, game: &Game) -> String {
     if *i < info.len() {
         let mut letter = info.chars().nth(*i).unwrap();
         let mut number = String::new();
-        while ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].contains(&letter) {
+        while DIGITS.contains(&letter) {
             number.write_char(letter).unwrap();
             *i += 1;
             if *i >= info.len() { break; }
             letter = info.chars().nth(*i).unwrap();
         }
+
         if !number.is_empty() {
             let number: usize = number.parse().unwrap();
             result += &game.states[&number];
         }
+
         else {
             result.write_char(info.chars().nth(*i-1).unwrap()).unwrap();
         }
     }
+
     else {
         result.write_char(info.chars().nth(*i-1).unwrap()).unwrap();
     }
+
     result
 }
 

@@ -1,0 +1,15 @@
+"Hello, World! This is just so awesome!!!"
+"Which Branch?" {
+    "first" => {
+        ?0 "What is your name?"
+        ?1 "What is your age?"
+        "Hi $0, you are $1 years old!"
+    }
+
+    "second" => {
+        "Are you 18+ ?" {
+            "yes" => "Whooo, you can vote"
+            "no" => "Sorry, you can't vote"
+        }
+    }
+}
