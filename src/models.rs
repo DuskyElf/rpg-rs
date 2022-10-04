@@ -56,10 +56,16 @@ impl Branch {
 }
 
 #[derive(Debug)]
+pub struct Position {
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Debug)]
 pub enum TokenType {
-    BrackOpen,              // {
-    BrackClose,             // }
-    LambdaOperator,         // =>
-    Identifier(usize),      // ?0
-    StringLiteral(String),  // ""
+    BrackOpen(Position),              // {
+    BrackClose(Position),             // }
+    LambdaOperator(Position),         // =>
+    Identifier(Position, usize),      // ?0
+    StringLiteral(Position, String),  // ""
 }

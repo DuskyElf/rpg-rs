@@ -26,8 +26,12 @@ impl Lexer {
 
             let current_char = lexer.source.chars().nth(lexer.index).unwrap();
             match current_char {
-                '{'  => tokens.push(TokenType::BrackOpen),
-                '}'  => tokens.push(TokenType::BrackClose),
+                '{'  => tokens.push(TokenType::BrackOpen(
+                    Position { line: lexer.line, column: lexer.column }
+                )),
+                '}'  => tokens.push(TokenType::BrackClose(
+                    Position { line: lexer.line, column: lexer.column }
+                )),
                 '='  => tokens.push(lexer.lex_lambda_operator()),
                 '?'  => tokens.push(lexer.lex_identifier()),
                 '"'  => tokens.push(lexer.lex_strings()),
@@ -58,10 +62,13 @@ impl Lexer {
             self.error("Expected '>' after '=', for '=>' operator");
         }
 
-        TokenType::LambdaOperator
+        TokenType::LambdaOperator(
+            Position { line: self.line, column: self.column - 1 }
+        )
     }
 
     fn lex_identifier(&mut self) -> TokenType {
+        let start_column = self.column;
         self.index += 1;
         self.column += 1;
 
@@ -92,10 +99,16 @@ impl Lexer {
         }
 
         let number: usize = number.parse().unwrap();
-        TokenType::Identifier(number)
+        TokenType::Identifier(
+            Position { line: self.line, column: start_column },
+            number
+        )
     }
 
     fn lex_strings(&mut self) -> TokenType {
+        let start_line = self.line;
+        let start_column = self.column;
+
         self.index += 1;
         self.column += 1;
         let mut result = String::new();
@@ -105,9 +118,6 @@ impl Lexer {
             self.column -= 1;
             self.error("Missing end of '\"' (String literal)");
         }
-
-        let start_line = self.line;
-        let start_column = self.column;
 
         let mut letter = self.source.chars().nth(self.index).unwrap();
         while letter != '"' {
@@ -129,7 +139,10 @@ impl Lexer {
             letter = self.source.chars().nth(self.index).unwrap();
         }
 
-        TokenType::StringLiteral(result)
+        TokenType::StringLiteral(
+            Position { line: start_line, column: start_column },
+            result
+        )
     }
 
     fn error(&self, message: &str) {
