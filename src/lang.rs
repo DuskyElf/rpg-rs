@@ -152,7 +152,7 @@ impl Lexer {
     }
 
     fn error(&self, message: &str) {
-        println!("Error: {}\nAt Line: {}, Column: {}",
+        eprintln!("Error: {}\nAt Line: {}, Column: {}",
             message, self.line, self.column
         );
 
@@ -304,7 +304,7 @@ impl Parser {
     }
 
     fn error(&self, message: &str) {
-        println!("Error: {}\nAt Line: {}, Column: {}",
+        eprintln!("Error: {}\nAt Line: {}, Column: {}",
             message, self.curr_token.position.line,
             self.curr_token.position.column
         );
