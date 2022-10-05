@@ -8,8 +8,8 @@
 
     "second" => {
         "Are you 18+ ?" {
-            "yes" => "Whooo, you can vote"
-            "no" => "Sorry, you can't vote"
+            "yes" => { "Whooo, you can vote" }
+            "no" => { "Sorry, you can't vote" }
         }
     }
 }

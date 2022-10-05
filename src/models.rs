@@ -19,7 +19,7 @@ impl Game {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     INFO(String),
     QUESTION(String, usize),
@@ -27,45 +27,51 @@ pub enum Message {
 }
 
 impl Message {
-    pub fn new_info(info: &str) -> Self {
-        Self::INFO(info.to_string())
+    pub fn new_info(info: String) -> Self {
+        Self::INFO(info)
     }
 
-    pub fn new_question(question: &str, save_id: usize) -> Self {
-        Self::QUESTION(question.to_string(), save_id)
+    pub fn new_question(question: String, save_id: usize) -> Self {
+        Self::QUESTION(question, save_id)
     }
 
-    pub fn new_branch(question: &str, options: Vec<Branch>) -> Self {
-        Self::BRANCH(question.to_string(), options)
+    pub fn new_branch(question: String, options: Vec<Branch>) -> Self {
+        Self::BRANCH(question, options)
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Branch {
     pub option: String,
     pub messages: Vec<Message>,
 }
 
 impl Branch {
-    pub fn new(option: &str, messages: Vec<Message>) -> Self {
+    pub fn new(option: String, messages: Vec<Message>) -> Self {
         Self {
-            option: option.to_string(),
+            option: option,
             messages,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum TokenType {
-    BrackOpen(Position),              // {
-    BrackClose(Position),             // }
-    LambdaOperator(Position),         // =>
-    Identifier(Position, usize),      // ?0
-    StringLiteral(Position, String),  // ""
+    BrackOpen,              // {
+    BrackClose,             // }
+    LambdaOperator,         // =>
+    Identifier(usize),      // ?0
+    StringLiteral(String),  // ""
+}
+
+#[derive(Clone, Debug)]
+pub struct Token {
+    pub position: Position,
+    pub token_type: TokenType,
 }
