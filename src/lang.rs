@@ -5,7 +5,7 @@ use std::vec::IntoIter;
 use crate::models::*;
 use TokenType::*;
 
-pub struct Lexer {
+struct Lexer {
     source: String,
     index: usize,
     line: usize,
@@ -13,7 +13,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn lex(source: String) -> Vec<Token> {
+    fn lex(source: String) -> Vec<Token> {
         let mut tokens: Vec<Token> = Vec::new();
         let mut lexer = Lexer {
             source,
@@ -160,7 +160,7 @@ impl Lexer {
     }
 }
 
-pub struct Parser {
+struct Parser {
     tokens: Peekable<IntoIter<Token>>,
     curr_token: Token,
 }
@@ -178,7 +178,7 @@ impl Parser {
 }
 
 impl Parser {
-    pub fn parse(tokens: Vec<Token>) -> Vec<Message> {
+    fn parse(tokens: Vec<Token>) -> Vec<Message> {
         let mut messages: Vec<Message> = Vec::new();
         let mut parser = Parser::new(tokens.into_iter().peekable());
 
@@ -311,4 +311,11 @@ impl Parser {
 
         std::process::exit(1);
     }
+}
+
+pub fn compile(source: String) -> Vec<Message> {
+    let tokens = Lexer::lex(source);
+    let messages = Parser::parse(tokens);
+
+    messages
 }
