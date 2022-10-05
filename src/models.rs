@@ -49,7 +49,7 @@ pub struct Branch {
 impl Branch {
     pub fn new(option: String, messages: Vec<Message>) -> Self {
         Self {
-            option: option,
+            option,
             messages,
         }
     }
