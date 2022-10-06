@@ -163,6 +163,7 @@ impl Lexer {
 struct Parser {
     tokens: Peekable<IntoIter<Token>>,
     curr_token: Token,
+    identifiers: Vec<usize>,
 }
 
 impl Parser {
@@ -173,6 +174,7 @@ impl Parser {
                 position: Position { line: 0, column: 0 },
                 token_type: BrackOpen,
             },
+            identifiers: vec![],
         }
     }
 }
@@ -206,6 +208,7 @@ impl Parser {
     }
 
     fn parse_strings(&mut self) -> Message {
+        self.validate_string();
         let message = match self.curr_token.token_type.clone() {
             StringLiteral(m) => m,
             _ => unreachable!(),
@@ -235,12 +238,14 @@ impl Parser {
             unreachable!()
         };
         let question = if let StringLiteral(question) = question_token.token_type {
+            self.validate_string();
             question
         } else {
             self.error("Expected question (StringLiteral)");
             unreachable!()
         };
 
+        self.identifiers.push(save_id);
         Message::new_question(question, save_id)
     }
 
@@ -256,6 +261,7 @@ impl Parser {
             };
 
             let branch_name = if let StringLiteral(branch_name) = branch_name_token.token_type {
+                self.validate_string();
                 branch_name
             } else {
                 self.error("Expected Branch Node");
@@ -285,6 +291,7 @@ impl Parser {
             };
 
             let mut branch_node_block: Vec<Message> = Vec::new();
+            let tmp = self.identifiers.clone();
             while let None = self.tokens.next_if(|x| x.token_type == BrackClose) {
                 if let Some(token) = self.tokens.next() {
                     self.curr_token = token.clone();
@@ -296,11 +303,47 @@ impl Parser {
 
                 branch_node_block.push(self.handle_token());
             }
+            self.identifiers = tmp;
 
             branches.push(Branch::new(branch_name, branch_node_block))
         }
 
         Message::new_branch(question, branches)
+    }
+
+    fn validate_string(&self) {
+        let info = if let StringLiteral(m) =
+            self.curr_token.token_type.clone() { m } else { unreachable!() };
+
+        let mut i = 0;
+        while i < info.len() {
+            let mut letter = info.chars().nth(i).unwrap();
+            if letter == '$' {
+                i += 1;
+                if i >= info.len() { break; }
+                letter = info.chars().nth(i).unwrap();
+
+                let mut number = String::new();
+                while DIGITS.contains(&letter) {
+                    number.write_char(letter).unwrap();
+                    i += 1;
+                    if i >= info.len() { break; }
+                    letter = info.chars().nth(i).unwrap();
+                }
+
+                if !number.is_empty() {
+                    let number: usize = number.parse().unwrap();
+                    if !self.identifiers.contains(&number) {
+                        self.error(&format!(
+                            "Identifer '{}' used in StringLiteral without delaration",
+                                               number
+                        ));
+                    }
+                }
+            }
+
+            i += 1;
+        }
     }
 
     fn error(&self, message: &str) {

@@ -1,13 +1,13 @@
 "Hello, World! This is just so awesome!!!"
+?0 "What is your name?"
 "Which Branch?" {
     "first" => {
-        ?0 "What is your name?"
         ?1 "What is your age?"
         "Hi $0, you are $1 years old!"
     }
 
     "second" => {
-        "Are you 18+ ?" {
+        "Are you 18+ $0?" {
             "yes" => { "Whooo, you can vote" }
             "no" => { "Sorry, you can't vote" }
         }
