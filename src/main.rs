@@ -2,7 +2,7 @@ use pancurses::*;
 use rpg_rs::*;
 use std::{env, fs};
 
-fn main() {
+fn main() -> Result<(), i32> {
     let args: Vec<String> = env::args().collect();
     if args.len() <= 1 {
         println!("Usage: <file_name>");
@@ -16,14 +16,20 @@ fn main() {
         std::process::exit(1);
     };
 
-    let messages = rpg_rs::compile(source);
+    match rpg_rs::compile(source) {
+        Ok(messages) => {
+            raw();
 
-    raw();
+            let mut game = Game::new(initscr(), messages);
+            game.window.keypad(true);
+            start_game(&mut game);
 
-    let mut game = Game::new(initscr(), messages);
-    game.window.keypad(true);
-    start_game(&mut game);
+            endwin();
+            Ok(())
+        }
 
-    endwin();
+        Err(error) => error.complain()
+    }
+
 }
 

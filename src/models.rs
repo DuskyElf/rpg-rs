@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use std::iter::Peekable;
+use std::vec::IntoIter;
+
 use pancurses::Window;
 
 pub static DIGITS: [char; 10] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
@@ -70,8 +73,89 @@ pub enum TokenType {
     StringLiteral(String),  // ""
 }
 
+pub struct Lexer {
+    pub source: String,
+    pub index: usize,
+    pub line: usize,
+    pub column: usize,
+}
+
 #[derive(Clone, Debug)]
 pub struct Token {
     pub position: Position,
     pub token_type: TokenType,
+}
+
+pub struct Parser {
+    pub tokens: Peekable<IntoIter<Token>>,
+    pub curr_token: Token,
+    pub identifiers: Vec<usize>,
+}
+
+pub enum ErrorType {
+    InvalidSyntax,
+    Missing(String),
+    Expected(String),
+    InvalidIdentifier(usize),
+}
+
+pub struct Error {
+    error_type: ErrorType,
+    line: usize,
+    column: usize,
+}
+
+impl Error {
+    pub fn lex_error(error_type: ErrorType, lexer: &Lexer) -> Self {
+        Self {
+            error_type,
+            line: lexer.line,
+            column: lexer.column,
+        }
+    }
+
+    pub fn parse_error(error_type: ErrorType, parser: &Parser) -> Self {
+        Self {
+            error_type,
+            line: parser.curr_token.position.line,
+            column: parser.curr_token.position.column,
+        }
+    }
+
+    pub fn complain(self) -> Result<(), i32> {
+        match self.error_type {
+            ErrorType::InvalidSyntax =>{
+                eprintln!(
+                    "Error: Invalid Syntax\nAt line: {}, column: {}",
+                    self.line, self.column
+                );
+                Err(-1)
+            },
+
+            ErrorType::Missing(error) => {
+                eprintln!(
+                    "Error: Missing {}\nAt line: {}, column: {}",
+                    error, self.line, self.column
+                );
+                Err(40)
+            },
+
+            ErrorType::Expected(error) => {
+                eprintln!(
+                    "Error: Expected {}\nAt line: {}, column: {}",
+                    error, self.line, self.column
+                );
+                Err(41)
+            },
+
+            ErrorType::InvalidIdentifier(identifier) => {
+                eprintln!(
+                    "Error: Identifer '{}' used in StringLiteral without delaration
+At line: {}, column: {}",
+                    identifier, self.line, self.column
+                );
+                Err(42)
+            },
+        }
+    }
 }

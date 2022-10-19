@@ -4,16 +4,10 @@ use std::vec::IntoIter;
 
 use crate::models::*;
 use TokenType::*;
-
-struct Lexer {
-    source: String,
-    index: usize,
-    line: usize,
-    column: usize,
-}
+use ErrorType::*;
 
 impl Lexer {
-    fn lex(source: String) -> Vec<Token> {
+    fn lex(source: String) -> Result<Vec<Token>, Error> {
         let mut tokens: Vec<Token> = Vec::new();
         let mut lexer = Lexer {
             source,
@@ -37,43 +31,51 @@ impl Lexer {
                     position: Position { line: lexer.line, column: lexer.column },
                     token_type: BrackClose,
                 }),
-                '='  => tokens.push(lexer.lex_lambda_operator()),
-                '?'  => tokens.push(lexer.lex_identifier()),
-                '"'  => tokens.push(lexer.lex_strings()),
+                '='  => tokens.push(lexer.lex_lambda_operator()?),
+                '?'  => tokens.push(lexer.lex_identifier()?),
+                '"'  => tokens.push(lexer.lex_strings()?),
                 '\n' => {
                     lexer.line += 1;
                     lexer.column = 0;
                 },
                 ' ' | '\t' => (),
-                _ => lexer.error("Invalid Syntax"),
+                _ => return Err(Error::lex_error(
+                    InvalidSyntax, &lexer
+                )),
             }
             lexer.index += 1;
             lexer.column += 1;
         }
 
-        tokens
+        Ok(tokens)
     }
 
-    fn lex_lambda_operator(&mut self) -> Token {
+    fn lex_lambda_operator(&mut self) -> Result<Token, Error> {
         self.index += 1;
         self.column += 1;
         if self.index >= self.source.len() {
             self.index -= 1;
             self.column -= 1;
-            self.error("Missing '>' after '=', for '=>' operator");
+            return Err(Error::lex_error(
+                Missing("'>' after '=', for '=>' operator".to_string()),
+                self
+            ))
         }
 
         if self.source.chars().nth(self.index).unwrap() != '>' {
-            self.error("Expected '>' after '=', for '=>' operator");
+            return Err(Error::lex_error(
+                Expected("'>' after '=', for '=>' operator".to_string()),
+                self
+            ))
         }
 
-        Token {
+        Ok(Token {
             position: Position { line: self.line, column: self.column - 1 },
             token_type: LambdaOperator,
-        }
+        })
     }
 
-    fn lex_identifier(&mut self) -> Token {
+    fn lex_identifier(&mut self) -> Result<Token, Error> {
         let start_column = self.column;
         self.index += 1;
         self.column += 1;
@@ -81,7 +83,10 @@ impl Lexer {
         if self.index >= self.source.len() {
             self.index -= 1;
             self.column -= 1;
-            self.error("Missing identifier number after '?'");
+            return Err(Error::lex_error(
+                Missing("identifier number after '?'".to_string()),
+                self
+            ))
         }
 
         let mut letter = self.source.chars().nth(self.index).unwrap();
@@ -101,17 +106,20 @@ impl Lexer {
         self.column -= 1;
 
         if number.is_empty() {
-            self.error("Expected identifier number after '?'")
+            return Err(Error::lex_error(
+                Expected("identifier number after '?'".to_string()),
+                self
+            ))
         }
 
         let number: usize = number.parse().unwrap();
-        Token {
+        Ok(Token {
             position: Position { line: self.line, column: start_column},
             token_type: Identifier(number),
-        }
+        })
     }
 
-    fn lex_strings(&mut self) -> Token {
+    fn lex_strings(&mut self) -> Result<Token, Error> {
         let start_line = self.line;
         let start_column = self.column;
 
@@ -122,7 +130,10 @@ impl Lexer {
         if self.index >= self.source.len() {
             self.index -= 1;
             self.column -= 1;
-            self.error("Missing end of '\"' (String literal)");
+            return Err(Error::lex_error(
+                Missing("end of '\"' (String literal)".to_string()),
+                self
+            ))
         }
 
         let mut letter = self.source.chars().nth(self.index).unwrap();
@@ -139,31 +150,20 @@ impl Lexer {
             if self.index >= self.source.len() {
                 self.line = start_line;
                 self.column = start_column;
-                self.error("This '\"' (String literal) have no ending")
+                return Err(Error::lex_error(
+                    Missing("This '\"' (String literal) have no ending".to_string()),
+                    self
+                ))
             }
 
             letter = self.source.chars().nth(self.index).unwrap();
         }
 
-        Token {
+        Ok(Token {
             position: Position { line: start_line, column: start_column },
             token_type: StringLiteral(result),
-        }
+        })
     }
-
-    fn error(&self, message: &str) {
-        eprintln!("Error: {}\nAt Line: {}, Column: {}",
-            message, self.line, self.column
-        );
-
-        std::process::exit(1);
-    }
-}
-
-struct Parser {
-    tokens: Peekable<IntoIter<Token>>,
-    curr_token: Token,
-    identifiers: Vec<usize>,
 }
 
 impl Parser {
@@ -180,7 +180,7 @@ impl Parser {
 }
 
 impl Parser {
-    fn parse(tokens: Vec<Token>) -> Vec<Message> {
+    fn parse(tokens: Vec<Token>) -> Result<Vec<Message>, Error> {
         let mut messages: Vec<Message> = Vec::new();
         let mut parser = Parser::new(tokens.into_iter().peekable());
 
@@ -190,25 +190,27 @@ impl Parser {
                 None => break,
             };
 
-            messages.push(parser.handle_token())
+            messages.push(parser.handle_token()?)
         }
 
-        messages
+        Ok(messages)
     }
 
-    fn handle_token(&mut self) -> Message {
+    fn handle_token(&mut self) -> Result<Message, Error> {
         match self.curr_token.token_type {
             StringLiteral(_) => self.parse_strings(),
             Identifier(_) => self.parse_identifier(),
             _ => {
-                self.error("Expected Message");
-                unreachable!()
+                return Err(Error::parse_error(
+                    Expected("Message".to_string()),
+                    self
+                ))
             },
         }
     }
 
-    fn parse_strings(&mut self) -> Message {
-        self.validate_string();
+    fn parse_strings(&mut self) -> Result<Message, Error> {
+        self.validate_string()?;
         let message = match self.curr_token.token_type.clone() {
             StringLiteral(m) => m,
             _ => unreachable!(),
@@ -219,12 +221,12 @@ impl Parser {
                 self.parse_branch(message)
         }
         else {
-            Message::new_info(message)
+            Ok(Message::new_info(message))
         }
 
     }
 
-    fn parse_identifier(&mut self) -> Message {
+    fn parse_identifier(&mut self) -> Result<Message, Error> {
         let save_id = match self.curr_token.token_type {
             Identifier(m) => m,
             _ => unreachable!(),
@@ -234,60 +236,78 @@ impl Parser {
             self.curr_token = token.clone();
             token
         } else {
-            self.error("Missing question (StringLiteral)");
-            unreachable!()
+            return Err(Error::parse_error(
+                Missing("question (StringLiteral)".to_string()),
+                self
+            ))
         };
         let question = if let StringLiteral(question) = question_token.token_type {
-            self.validate_string();
+            self.validate_string()?;
             question
         } else {
-            self.error("Expected question (StringLiteral)");
-            unreachable!()
+            return Err(Error::parse_error(
+                Expected("question (StringLiteral)".to_string()),
+                self
+            ))
         };
 
         self.identifiers.push(save_id);
-        Message::new_question(question, save_id)
+        Ok(Message::new_question(question, save_id))
     }
 
-    fn parse_branch(&mut self, question: String) -> Message {
+    fn parse_branch(&mut self, question: String) -> Result<Message, Error> {
         let mut branches: Vec<Branch> = Vec::new();
         while let None = self.tokens.next_if(|x| x.token_type == BrackClose) {
             let branch_name_token = if let Some(token) = self.tokens.next() {
                 self.curr_token = token.clone();
                 token
             } else {
-                self.error("Missing '}' (Branch ending)");
-                unreachable!()
+                return Err(Error::parse_error(
+                    Missing("'}' (Branch ending)".to_string()),
+                    self
+                ))
             };
 
             let branch_name = if let StringLiteral(branch_name) = branch_name_token.token_type {
-                self.validate_string();
+                self.validate_string()?;
                 branch_name
             } else {
-                self.error("Expected Branch Node");
-                unreachable!()
+                return Err(Error::parse_error(
+                    Expected("Branch Node".to_string()),
+                    self
+                ))
             };
 
             let node_delaration = if let Some(token) = self.tokens.next() {
                 self.curr_token = token.clone();
                 token
             } else {
-                self.error("Missing '=>' (Branch Node declaration)");
-                unreachable!()
+                return Err(Error::parse_error(
+                    Missing("'=>' (Branch Node declaration)".to_string()),
+                    self
+                ))
             };
             if node_delaration.token_type != LambdaOperator {
-                self.error("Expected '=>' (Branch Node declaration)");
+                return Err(Error::parse_error(
+                    Expected("'=>' (Branch Node declaration)".to_string()),
+                    self
+                ))
             };
 
             let node_starting = if let Some(token) = self.tokens.next() {
                 self.curr_token = token.clone();
                 token
             } else {
-                self.error("Missing '{' (Branch Node starting)");
-                unreachable!();
+                return Err(Error::parse_error(
+                    Missing("'{' (Branch Node starting)".to_string()),
+                    self
+                ))
             };
             if node_starting.token_type != BrackOpen {
-                self.error("Expected '{' (Branch Node starting)");
+                return Err(Error::parse_error(
+                    Expected("'{' (Branch Node starting)".to_string()),
+                    self
+                ))
             };
 
             let mut branch_node_block: Vec<Message> = Vec::new();
@@ -297,21 +317,23 @@ impl Parser {
                     self.curr_token = token.clone();
                     token
                 } else {
-                    self.error("Missing '}' (Branch Node ending)");
-                    unreachable!()
+                    return Err(Error::parse_error(
+                        Missing("'}' (Branch Node ending)".to_string()),
+                        self
+                    ))
                 };
 
-                branch_node_block.push(self.handle_token());
+                branch_node_block.push(self.handle_token()?);
             }
             self.identifiers = tmp;
 
             branches.push(Branch::new(branch_name, branch_node_block))
         }
 
-        Message::new_branch(question, branches)
+        Ok(Message::new_branch(question, branches))
     }
 
-    fn validate_string(&self) {
+    fn validate_string(&self) -> Result<(), Error> {
         let info = if let StringLiteral(m) =
             self.curr_token.token_type.clone() { m } else { unreachable!() };
 
@@ -334,30 +356,23 @@ impl Parser {
                 if !number.is_empty() {
                     let number: usize = number.parse().unwrap();
                     if !self.identifiers.contains(&number) {
-                        self.error(&format!(
-                            "Identifer '{}' used in StringLiteral without delaration",
-                                               number
-                        ));
+                        //"Identifer '{}' used in StringLiteral without delaration",
+                        return Err(Error::parse_error(
+                            InvalidIdentifier(number),
+                            self
+                        ))
                     }
                 }
             }
 
             i += 1;
         }
-    }
-
-    fn error(&self, message: &str) {
-        eprintln!("Error: {}\nAt Line: {}, Column: {}",
-            message, self.curr_token.position.line,
-            self.curr_token.position.column
-        );
-
-        std::process::exit(1);
+        Ok(())
     }
 }
 
-pub fn compile(source: String) -> Vec<Message> {
-    let tokens = Lexer::lex(source);
+pub fn compile(source: String) -> Result<Vec<Message>, Error> {
+    let tokens = Lexer::lex(source)?;
     let messages = Parser::parse(tokens);
 
     messages
