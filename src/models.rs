@@ -86,8 +86,9 @@ pub struct Token {
     pub token_type: TokenType,
 }
 
+pub type ParseableTokens = Peekable<IntoIter<Token>>;
 pub struct Parser {
-    pub tokens: Peekable<IntoIter<Token>>,
+    pub tokens: ParseableTokens,
     pub curr_token: Token,
     pub identifiers: Vec<usize>,
 }

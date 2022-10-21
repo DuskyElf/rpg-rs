@@ -7,6 +7,7 @@ pub fn start_game(game: &mut Game) {
     }
 }
 
+// Decoding instructions to different functions
 fn handle_message(message: &Message, game: &mut Game) {
     match message {
         Message::INFO(info) => info_message(info, game),
@@ -61,6 +62,7 @@ fn tell_info(info: &String, game: &Game) {
     }
 }
 
+// Parsing StringLiteral to find an identifer reference
 fn parse(info: &String, game: &Game) -> String {
     let mut i = 0;
     let mut result = String::new();
@@ -77,6 +79,8 @@ fn parse(info: &String, game: &Game) -> String {
     result
 }
 
+// Parsing identifer reference inside a StringLiteral
+// And replacing it with it's value from game.states (runtime identifer pool)
 fn handle_states(i: &mut usize, info: &String, game: &Game) -> String {
     *i += 1;
     let mut result = String::new();
@@ -113,6 +117,9 @@ fn branch_selection<'a>(branches: &'a Vec<Branch>, game: &Game) -> &'a Branch {
     let mut selection = 0;
     let y = game.window.get_cur_y();
     let x = game.window.get_cur_x();
+
+    // Looping through all choices in the branch
+    // And rendering them in responce to user
     loop {
         game.window.mv(y, x);
         for (i, branch) in branches.iter().enumerate() {
@@ -140,6 +147,7 @@ fn branch_selection<'a>(branches: &'a Vec<Branch>, game: &Game) -> &'a Branch {
     branches.get(selection).unwrap()
 }
 
+// Simulating stdin
 fn scan(window: &Window, buffer: &mut String) {
     noecho();
     loop {

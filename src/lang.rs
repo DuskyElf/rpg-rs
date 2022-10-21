@@ -1,14 +1,15 @@
 use std::fmt::Write;
-use std::iter::Peekable;
-use std::vec::IntoIter;
 
 use crate::models::*;
 use TokenType::*;
 use ErrorType::*;
 
+// The tokenizer
 impl Lexer {
     fn lex(source: String) -> Result<Vec<Token>, Error> {
         let mut tokens: Vec<Token> = Vec::new();
+        
+        // Global variables for different parts of the lexer
         let mut lexer = Lexer {
             source,
             index: 0,
@@ -16,6 +17,7 @@ impl Lexer {
             column: 1,
         };
 
+        // Iterates through each char in the rpg_source
         loop {
             if lexer.index >= lexer.source.len() {
                 break;
@@ -38,7 +40,7 @@ impl Lexer {
                     lexer.line += 1;
                     lexer.column = 0;
                 },
-                ' ' | '\t' => (),
+                ' ' | '\t' => (), // Ignoring white spaces
                 _ => return Err(Error::lex_error(
                     InvalidSyntax, &lexer
                 )),
@@ -50,12 +52,15 @@ impl Lexer {
         Ok(tokens)
     }
 
+    // `=>`
     fn lex_lambda_operator(&mut self) -> Result<Token, Error> {
         self.index += 1;
         self.column += 1;
         if self.index >= self.source.len() {
+            // For error to point at the right location
             self.index -= 1;
             self.column -= 1;
+
             return Err(Error::lex_error(
                 Missing("'>' after '=', for '=>' operator".to_string()),
                 self
@@ -75,14 +80,17 @@ impl Lexer {
         })
     }
 
+    // `?<*digit>`
     fn lex_identifier(&mut self) -> Result<Token, Error> {
         let start_column = self.column;
         self.index += 1;
         self.column += 1;
 
         if self.index >= self.source.len() {
+            // For error to point at the right location
             self.index -= 1;
             self.column -= 1;
+
             return Err(Error::lex_error(
                 Missing("identifier number after '?'".to_string()),
                 self
@@ -102,6 +110,7 @@ impl Lexer {
 
             letter = self.source.chars().nth(self.index).unwrap();
         }
+        // Unchecking the current_char for the next lex iteration
         self.index -= 1;
         self.column -= 1;
 
@@ -112,6 +121,8 @@ impl Lexer {
             ))
         }
 
+        // `number` would always be valid int
+        // as we parsed it ourselves before
         let number: usize = number.parse().unwrap();
         Ok(Token {
             position: Position { line: self.line, column: start_column},
@@ -119,6 +130,7 @@ impl Lexer {
         })
     }
 
+    // `"<*.-">"`
     fn lex_strings(&mut self) -> Result<Token, Error> {
         let start_line = self.line;
         let start_column = self.column;
@@ -128,6 +140,7 @@ impl Lexer {
         let mut result = String::new();
 
         if self.index >= self.source.len() {
+            // For error to point at the right location
             self.index -= 1;
             self.column -= 1;
             return Err(Error::lex_error(
@@ -138,6 +151,7 @@ impl Lexer {
 
         let mut letter = self.source.chars().nth(self.index).unwrap();
         while letter != '"' {
+            // Keeping track of line, column for error messages
             if letter == '\n' {
                 self.line += 1;
                 self.column = 0;
@@ -167,7 +181,8 @@ impl Lexer {
 }
 
 impl Parser {
-    fn new(tokens: Peekable<IntoIter<Token>>) -> Self {
+    fn new(tokens: ParseableTokens) -> Self {
+        // Global variables for different parts of the Parser
         Self {
             tokens,
             curr_token: Token {
@@ -177,13 +192,12 @@ impl Parser {
             identifiers: vec![],
         }
     }
-}
 
-impl Parser {
     fn parse(tokens: Vec<Token>) -> Result<Vec<Message>, Error> {
         let mut messages: Vec<Message> = Vec::new();
         let mut parser = Parser::new(tokens.into_iter().peekable());
 
+        // Looping through all tokens
         loop {
             parser.curr_token = match parser.tokens.next() {
                 Some(token) => token,
@@ -196,6 +210,8 @@ impl Parser {
         Ok(messages)
     }
 
+    // StringLiteral
+    // Identifer
     fn handle_token(&mut self) -> Result<Message, Error> {
         match self.curr_token.token_type {
             StringLiteral(_) => self.parse_strings(),
@@ -209,6 +225,8 @@ impl Parser {
         }
     }
 
+    // StringLiteral BrackOpen
+    // StringLiteral
     fn parse_strings(&mut self) -> Result<Message, Error> {
         self.validate_string()?;
         let message = match self.curr_token.token_type.clone() {
@@ -226,6 +244,7 @@ impl Parser {
 
     }
 
+    // Identifer StringLiteral
     fn parse_identifier(&mut self) -> Result<Message, Error> {
         let save_id = match self.curr_token.token_type {
             Identifier(m) => m,
@@ -255,8 +274,11 @@ impl Parser {
         Ok(Message::new_question(question, save_id))
     }
 
+    // BrackOpen +(StringLiteral LambdaOperator BrackOpen *. BrackClose) BrackClose
     fn parse_branch(&mut self, question: String) -> Result<Message, Error> {
         let mut branches: Vec<Branch> = Vec::new();
+
+        // Looping through all choices of the branch
         while let None = self.tokens.next_if(|x| x.token_type == BrackClose) {
             let branch_name_token = if let Some(token) = self.tokens.next() {
                 self.curr_token = token.clone();
@@ -312,6 +334,9 @@ impl Parser {
 
             let mut branch_node_block: Vec<Message> = Vec::new();
             let tmp = self.identifiers.clone();
+
+            // Looping through all tokens inside the branch body
+            // to recursively parse them all
             while let None = self.tokens.next_if(|x| x.token_type == BrackClose) {
                 if let Some(token) = self.tokens.next() {
                     self.curr_token = token.clone();
@@ -333,6 +358,8 @@ impl Parser {
         Ok(Message::new_branch(question, branches))
     }
 
+    // Checking if StringLiteral have valid identifier references
+    // Identifer reference be -> `$<*digit>`
     fn validate_string(&self) -> Result<(), Error> {
         let info = if let StringLiteral(m) =
             self.curr_token.token_type.clone() { m } else { unreachable!() };
@@ -373,7 +400,7 @@ impl Parser {
 
 pub fn compile(source: String) -> Result<Vec<Message>, Error> {
     let tokens = Lexer::lex(source)?;
-    let messages = Parser::parse(tokens);
+    let messages = Parser::parse(tokens)?;
 
-    messages
+    Ok(messages)
 }
