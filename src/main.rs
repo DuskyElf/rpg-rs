@@ -6,14 +6,14 @@ fn main() -> Result<(), i32> {
     let args: Vec<String> = env::args().collect();
     if args.len() <= 1 {
         println!("Usage: <file_name>");
-        std::process::exit(1);
+        return Err(0);
     }
 
     let source = if let Ok(m) = fs::read_to_string(args[1].clone()) {
         m
     } else {
         eprintln!("Error: Error while reading the file");
-        std::process::exit(1);
+        return Err(-1);
     };
 
     match rpg_rs::compile(source) {
