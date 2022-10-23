@@ -1,0 +1,25 @@
+statement:
+    expr
+    tell
+    <Identifier> <AssignmentOp> expr
+
+expr:
+    ask
+    block
+    branch
+    <Identifier>
+
+ask:     <AskOp> <StringLiteral>
+
+tell:    <TellOp> <StringLiteral>
+
+branch:  <BranchOp> <StringLiteral> branches
+
+branches:
+    <BrackOpen>
+        +(<StringLiteral> <LambdaOp> statement)
+    <BrackClolse>
+
+block: ?arguments <BrackOpen> *statement <BrackClose>
+
+arguments: <ParOpen> +<Identifier> <ParClose>

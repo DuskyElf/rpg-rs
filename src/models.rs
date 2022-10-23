@@ -66,10 +66,16 @@ pub struct Position {
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum TokenType {
+    AskOp,                  // ?
+    TellOp,                 // -
+    ParOpen,                // (
+    ParClose,               // )
+    BranchOp,               // #
+    LambdaOp,               // =>
     BrackOpen,              // {
     BrackClose,             // }
-    LambdaOperator,         // =>
-    Identifier(usize),      // ?0
+    AssignmentOp,           // :=
+    Identifier(String),     // <a-zA-Z0-9>
     StringLiteral(String),  // ""
 }
 

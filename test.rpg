@@ -1,15 +1,21 @@
-"Hello, World! This is just so awesome!!!"
-?0 "What is your name?"
-"Which Branch?" {
-    "first" => {
-        ?1 "What is your age?"
-        "Hi $0, you are $1 years old!"
-    }
+first := (name) {
+    age := ? "What is your age?"
+    - "Hi $name$, you are $age$ years old!"
+}
 
-    "second" => {
-        "Are you 18+ $0?" {
-            "yes" => { "Whooo, you can vote" }
-            "no" => { "Sorry, you can't vote" }
-        }
+second := (name) {
+    # "Are you 18+ $name$?" {
+        "yes" => - "Whooo, you can vote"
+        "no" => - "Sorry, you can't vote"
+    }
+}
+
+main := {
+    - "Hello, World! This is just so awesome!!!"
+    name := ? "What is your name?"
+
+    # "Which Branch?" {
+        "first" => first(name)
+        "second" => second(name)
     }
 }

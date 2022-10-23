@@ -23,27 +23,68 @@ impl Lexer {
                 break;
             }
 
+            // AskOp,                  // ?
+            // TellOp,                 // -
+            // ParOpen,                // (
+            // ParClose,               // )
+            // BranchOp,               // #
+            // LambdaOp,               // =>
+            // BrackOpen,              // {
+            // BrackClose,             // }
+            // AssignmentOp,           // :=
+            // Identifier(String),     // <a-zA-Z0-9>
+            // StringLiteral(String),  // ""
+
             let current_char = lexer.source.chars().nth(lexer.index).unwrap();
+            let position = Position { line: lexer.line, column: lexer.column };
             match current_char {
+                '?'  => tokens.push(Token{
+                    position, token_type: AskOp,
+                }),
+
+                '-'  => tokens.push(Token{
+                    position, token_type: TellOp,
+                }),
+
+                '('  => tokens.push(Token{
+                    position, token_type: ParOpen,
+                }),
+
+                ')'  => tokens.push(Token{
+                    position, token_type: ParClose,
+                }),
+
+                '#'  => tokens.push(Token{
+                    position, token_type: BranchOp,
+                }),
+
+                '='  => tokens.push(lexer.lex_lambda_op()?),
+
                 '{'  => tokens.push(Token{
-                    position: Position { line: lexer.line, column: lexer.column },
-                    token_type: BrackOpen,
+                    position, token_type: BrackOpen,
                 }),
+
                 '}'  => tokens.push(Token{
-                    position: Position { line: lexer.line, column: lexer.column },
-                    token_type: BrackClose,
+                    position, token_type: BrackClose,
                 }),
-                '='  => tokens.push(lexer.lex_lambda_operator()?),
-                '?'  => tokens.push(lexer.lex_identifier()?),
-                '"'  => tokens.push(lexer.lex_strings()?),
+
+                ':'  => tokens.push(lexer.lex_assignment_op()?),
+                
+                'a'..='z' | 'A'..='Z' | '0'..='9' => tokens.push(lexer.lex_identifier()?),
+
+                '"'  => tokens.push(lexer.lex_string_literal()?),
+
                 '\n' => {
                     lexer.line += 1;
                     lexer.column = 0;
                 },
+
                 ' ' | '\t' => (), // Ignoring white spaces
+
                 _ => return Err(Error::lex_error(
+                    // TODO: InvalidChar Error
                     InvalidSyntax, &lexer
-                )),
+                ))
             }
             lexer.index += 1;
             lexer.column += 1;
@@ -53,7 +94,7 @@ impl Lexer {
     }
 
     // `=>`
-    fn lex_lambda_operator(&mut self) -> Result<Token, Error> {
+    fn lex_lambda_op(&mut self) -> Result<Token, Error> {
         self.index += 1;
         self.column += 1;
         if self.index >= self.source.len() {
@@ -76,62 +117,64 @@ impl Lexer {
 
         Ok(Token {
             position: Position { line: self.line, column: self.column - 1 },
-            token_type: LambdaOperator,
+            token_type: LambdaOp,
         })
     }
 
-    // `?<*digit>`
-    fn lex_identifier(&mut self) -> Result<Token, Error> {
-        let start_column = self.column;
+    // `:=`
+    fn lex_assignment_op(&mut self) -> Result<Token, Error> {
         self.index += 1;
         self.column += 1;
-
         if self.index >= self.source.len() {
             // For error to point at the right location
             self.index -= 1;
             self.column -= 1;
 
             return Err(Error::lex_error(
-                Missing("identifier number after '?'".to_string()),
+                Missing("'=' after ':', for AssignmentOp (':=')".to_string()),
                 self
             ))
         }
 
-        let mut letter = self.source.chars().nth(self.index).unwrap();
-        let mut number = String::new();
-        while DIGITS.contains(&letter) {
-            number.write_char(letter).unwrap();
-
-            self.index += 1;
-            self.column += 1;
-            if self.index >= self.source.len() {
-                break;
-            }
-
-            letter = self.source.chars().nth(self.index).unwrap();
-        }
-        // Unchecking the current_char for the next lex iteration
-        self.index -= 1;
-        self.column -= 1;
-
-        if number.is_empty() {
+        if self.source.chars().nth(self.index).unwrap() != '=' {
             return Err(Error::lex_error(
-                Expected("identifier number after '?'".to_string()),
+                Expected("'=' after ':', for AssignmentOp (':=')".to_string()),
                 self
             ))
         }
 
-        // `number` would always be valid int
-        // as we parsed it ourselves before
-        let number: usize = number.parse().unwrap();
         Ok(Token {
-            position: Position { line: self.line, column: start_column},
-            token_type: Identifier(number),
+            position: Position { line: self.line, column: self.column - 1 },
+            token_type: AssignmentOp,
         })
     }
 
-    // `"<*.-">"`
-    fn lex_strings(&mut self) -> Result<Token, Error> {
+    // `*<a-zA-Z0-9>`
+    fn lex_identifier(&mut self) -> Result<Token, Error> {
+        let start_column = self.column;
+        let identifier = String::new();
+
+        let mut letter = self.source.chars().nth(self.index).unwrap();
+        while
+            ('a'..='z').contains(&letter) |
+            ('A'..='Z').contains(&letter) |
+            ('0'..='9').contains(&letter)
+        {
+            identifier.write_char(letter).unwrap();
+
+            self.index += 1;
+            self.column += 1;
+            if self.index >= self.source.len() { break; }
+            let mut letter = self.source.chars().nth(self.index).unwrap();
+        }
+        Ok(Token {
+            position: Position { line: self.line, column: start_column},
+            token_type: Identifier(identifier),
+        })
+    }
+
+    // `"*<.-">"`
+    fn lex_string_literal(&mut self) -> Result<Token, Error> {
         let start_line = self.line;
         let start_column = self.column;
 
@@ -180,6 +223,7 @@ impl Lexer {
     }
 }
 
+// TODO: Implement parser according to the new grammar
 impl Parser {
     fn new(tokens: ParseableTokens) -> Self {
         // Global variables for different parts of the Parser
