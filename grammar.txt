@@ -1,3 +1,6 @@
+parse:
+    *statement
+
 statement:
     expr
     tell
