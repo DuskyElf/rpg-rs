@@ -254,6 +254,42 @@ impl Parser {
         Ok(messages)
     }
 
+    fn source() {
+        todo!()
+    }
+
+    fn statement() {
+        todo!()
+    }
+
+    fn expr() {
+        todo!()
+    }
+
+    fn ask() {
+        todo!()
+    }
+
+    fn tell() {
+        todo!()
+    }
+
+    fn branch() {
+        todo!()
+    }
+
+    fn branches() {
+        todo!()
+    }
+
+    fn block() {
+        todo!()
+    }
+
+    fn arguments() {
+        todo!()
+    }
+
     // StringLiteral
     // Identifer
     fn handle_token(&mut self) -> Result<Message, Error> {

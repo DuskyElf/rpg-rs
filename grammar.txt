@@ -1,4 +1,4 @@
-parse:
+source:
     *statement
 
 statement:
