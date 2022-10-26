@@ -237,8 +237,8 @@ impl Parser {
         }
     }
 
-    fn parse(tokens: Vec<Token>) -> Result<Vec<Message>, Error> {
-        let mut messages: Vec<Message> = Vec::new();
+    fn parse(tokens: Vec<Token>) -> Result<Vec<OpCode>, Error> {
+        let mut messages: Vec<OpCode> = Vec::new();
         let mut parser = Parser::new(tokens.into_iter().peekable());
 
         // Looping through all tokens
@@ -292,7 +292,7 @@ impl Parser {
 
     // StringLiteral
     // Identifer
-    fn handle_token(&mut self) -> Result<Message, Error> {
+    fn handle_token(&mut self) -> Result<OpCode, Error> {
         match self.curr_token.token_type {
             StringLiteral(_) => self.parse_strings(),
             Identifier(_) => self.parse_identifier(),
@@ -307,7 +307,7 @@ impl Parser {
 
     // StringLiteral BrackOpen
     // StringLiteral
-    fn parse_strings(&mut self) -> Result<Message, Error> {
+    fn parse_strings(&mut self) -> Result<OpCode, Error> {
         self.validate_string()?;
         let message = match self.curr_token.token_type.clone() {
             StringLiteral(m) => m,
@@ -319,13 +319,13 @@ impl Parser {
                 self.parse_branch(message)
         }
         else {
-            Ok(Message::new_info(message))
+            Ok(OpCode::tell(message))
         }
 
     }
 
     // Identifer StringLiteral
-    fn parse_identifier(&mut self) -> Result<Message, Error> {
+    fn parse_identifier(&mut self) -> Result<OpCode, Error> {
         let save_id = match self.curr_token.token_type {
             Identifier(m) => m,
             _ => unreachable!(),
@@ -351,11 +351,11 @@ impl Parser {
         };
 
         self.identifiers.push(save_id);
-        Ok(Message::new_question(question, save_id))
+        Ok(OpCode::new_ask(question, save_id))
     }
 
     // BrackOpen +(StringLiteral LambdaOperator BrackOpen *. BrackClose) BrackClose
-    fn parse_branch(&mut self, question: String) -> Result<Message, Error> {
+    fn parse_branch(&mut self, question: String) -> Result<OpCode, Error> {
         let mut branches: Vec<Branch> = Vec::new();
 
         // Looping through all choices of the branch
@@ -412,7 +412,7 @@ impl Parser {
                 ))
             };
 
-            let mut branch_node_block: Vec<Message> = Vec::new();
+            let mut branch_node_block: Vec<OpCode> = Vec::new();
             let tmp = self.identifiers.clone();
 
             // Looping through all tokens inside the branch body
@@ -435,7 +435,7 @@ impl Parser {
             branches.push(Branch::new(branch_name, branch_node_block))
         }
 
-        Ok(Message::new_branch(question, branches))
+        Ok(OpCode::new_branch(question, branches))
     }
 
     // Checking if StringLiteral have valid identifier references
@@ -478,7 +478,7 @@ impl Parser {
     }
 }
 
-pub fn compile(source: String) -> Result<Vec<Message>, Error> {
+pub fn compile(source: String) -> Result<Vec<OpCode>, Error> {
     let tokens = Lexer::lex(source)?;
     let messages = Parser::parse(tokens)?;
 
