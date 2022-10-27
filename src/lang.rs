@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, vec, collections::{HashMap, HashSet}};
 
 use crate::models::*;
 use TokenType::*;
@@ -223,46 +223,94 @@ impl Lexer {
     }
 }
 
+enum ExprType{
+    Block,
+    Value,
+}
+
 // TODO: Implement parser according to the new grammar
 impl Parser {
     fn new(tokens: ParseableTokens) -> Self {
         // Global variables for different parts of the Parser
         Self {
             tokens,
+            byte_code: vec![],
             curr_token: Token {
                 position: Position { line: 0, column: 0 },
                 token_type: BrackOpen,
             },
-            identifiers: vec![],
+            value_identifiers: HashMap::new(),
+            block_identifiers: HashSet::new(),
         }
     }
 
     fn parse(tokens: Vec<Token>) -> Result<Vec<OpCode>, Error> {
-        let mut messages: Vec<OpCode> = Vec::new();
         let mut parser = Parser::new(tokens.into_iter().peekable());
 
-        // Looping through all tokens
-        loop {
-            parser.curr_token = match parser.tokens.next() {
-                Some(token) => token,
-                None => break,
-            };
-
-            messages.push(parser.handle_token()?)
+        if let Some(token) = parser.tokens.next() {
+            parser.curr_token = token;
+            parser.source()?;
         }
 
-        Ok(messages)
+        Ok(parser.byte_code)
     }
 
-    fn source() {
-        todo!()
+    fn source(&mut self) -> Result<(), Error> {
+        loop {
+            if let Some(statement_token) = self.tokens.next() {
+                self.curr_token = statement_token;
+                self.statement()?;
+            }
+            else {
+                break;
+            }
+        }
+
+        Ok(())
+
     }
 
-    fn statement() {
-        todo!()
+    fn statement(&mut self) -> Result<(), Error> {
+        if let TokenType::TellOp = self.curr_token.token_type {
+            self.tell()?;
+            return Ok(());
+        }
+        if let TokenType::BranchOp = self.curr_token.token_type {
+            self.branch()?;
+            return Ok(());
+        }
+
+        if let TokenType::Identifier(identifier) = self.curr_token.token_type {
+            if let Some(_) = self.tokens.next_if(|x| x.token_type == AssignmentOp) {
+                if let Some(statement_token) = self.tokens.next() {
+                    self.curr_token = statement_token;
+
+                    let value_spot = self.value_identifiers.len();
+                    let block_spot = self.block_identifiers.len();
+                    match self.expr(value_spot, block_spot)? {
+                        ExprType::Value => {
+                            self.value_identifiers.insert(identifier, value_spot);
+                        },
+                        ExprType::Block =>{
+                            self.block_identifiers.insert(identifier, block_spot);
+                        }
+                    };
+                    return Ok(());
+                }
+                else {
+                    return Err(Error::parse_error(
+                        Missing("expression for variable assignment".to_string()),
+                        self
+                    ));
+                }
+            }
+        }
+
+        self.expr(usize::MAX, usize::MAX)?;
+        Ok(())
     }
 
-    fn expr() {
+    fn expr(&mut self, value_spot: usize, block_spot: usize) -> Result<ExprType, Error> {
         todo!()
     }
 
@@ -270,11 +318,11 @@ impl Parser {
         todo!()
     }
 
-    fn tell() {
+    fn tell(&mut self) -> Result<(), Error> {
         todo!()
     }
 
-    fn branch() {
+    fn branch(&mut self) -> Result<(), Error> {
         todo!()
     }
 
@@ -350,7 +398,7 @@ impl Parser {
             ))
         };
 
-        self.identifiers.push(save_id);
+        self.value_identifiers.push(save_id);
         Ok(OpCode::new_ask(question, save_id))
     }
 
@@ -413,7 +461,7 @@ impl Parser {
             };
 
             let mut branch_node_block: Vec<OpCode> = Vec::new();
-            let tmp = self.identifiers.clone();
+            let tmp = self.value_identifiers.clone();
 
             // Looping through all tokens inside the branch body
             // to recursively parse them all
@@ -430,7 +478,7 @@ impl Parser {
 
                 branch_node_block.push(self.handle_token()?);
             }
-            self.identifiers = tmp;
+            self.value_identifiers = tmp;
 
             branches.push(Branch::new(branch_name, branch_node_block))
         }
@@ -462,7 +510,7 @@ impl Parser {
 
                 if !number.is_empty() {
                     let number: usize = number.parse().unwrap();
-                    if !self.identifiers.contains(&number) {
+                    if !self.value_identifiers.contains(&number) {
                         //"Identifer '{}' used in StringLiteral without delaration",
                         return Err(Error::parse_error(
                             InvalidIdentifier(number),

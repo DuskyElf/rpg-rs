@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -84,8 +85,10 @@ pub struct Token {
 pub type ParseableTokens = Peekable<IntoIter<Token>>;
 pub struct Parser {
     pub tokens: ParseableTokens,
+    pub byte_code: Vec<OpCode>,
     pub curr_token: Token,
-    pub identifiers: Vec<usize>,
+    pub value_identifiers: HashMap<String, usize>,
+    pub block_identifiers: HashMap<String, usize>,
 }
 
 pub enum ErrorType {
