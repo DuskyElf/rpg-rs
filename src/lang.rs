@@ -364,11 +364,11 @@ impl Parser {
 
         if let Some(_) =
             self.tokens.next_if(|x| x.token_type == BrackOpen) {
-                self.parse_branch(message)
+                self.parse_branch(message);
         }
         else {
-            Ok(OpCode::tell(message))
         }
+        unreachable!()
 
     }
 
@@ -398,8 +398,7 @@ impl Parser {
             ))
         };
 
-        self.value_identifiers.push(save_id);
-        Ok(OpCode::new_ask(question, save_id))
+        unreachable!()
     }
 
     // BrackOpen +(StringLiteral LambdaOperator BrackOpen *. BrackClose) BrackClose
@@ -437,12 +436,10 @@ impl Parser {
                     self
                 ))
             };
-            if node_delaration.token_type != LambdaOperator {
                 return Err(Error::parse_error(
                     Expected("'=>' (Branch Node declaration)".to_string()),
                     self
                 ))
-            };
 
             let node_starting = if let Some(token) = self.tokens.next() {
                 self.curr_token = token.clone();
