@@ -240,7 +240,7 @@ impl Parser {
                 token_type: BrackOpen,
             },
             value_identifiers: HashMap::new(),
-            block_identifiers: HashSet::new(),
+            block_identifiers: HashMap::new(),
         }
     }
 
