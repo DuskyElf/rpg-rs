@@ -1,4 +1,4 @@
-use std::{fmt::Write, vec, collections::{HashMap, HashSet}};
+use std::{fmt::Write, vec, collections::HashMap};
 
 use crate::models::*;
 use TokenType::*;
