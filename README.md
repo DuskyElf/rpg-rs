@@ -5,6 +5,7 @@
 ```shell
 $ git clone git@github.com:DuskyElf/rpg-rs.git
 $ cd rpg-rs
+$ git checkout tags/v0.0.1-alpha
 ```
 
 ### Sample Program
