@@ -224,6 +224,11 @@ impl Lexer {
 }
 
 enum ExprType{
+    Immediate(ImmediateType),
+    Reference(usize, ImmediateType),
+}
+
+enum ImmediateType {
     Block,
     Value,
 }
@@ -272,7 +277,7 @@ impl Parser {
 
     fn statement(&mut self) -> Result<(), Error> {
         if let TokenType::TellOp = self.curr_token.token_type {
-            self.tell()?;
+            self.tell(usize::MAX)?;
             return Ok(());
         }
         if let TokenType::BranchOp = self.curr_token.token_type {
@@ -288,11 +293,22 @@ impl Parser {
                     let value_spot = self.value_identifiers.len();
                     let block_spot = self.block_identifiers.len();
                     match self.expr(value_spot, block_spot)? {
-                        ExprType::Value => {
-                            self.value_identifiers.insert(identifier, value_spot);
-                        },
-                        ExprType::Block =>{
-                            self.block_identifiers.insert(identifier, block_spot);
+                        ExprType::Immediate(immediate) => match immediate {
+                            ImmediateType::Value => {
+                                self.value_identifiers.insert(identifier, value_spot);
+                            },
+                            ImmediateType::Block => {
+                                self.block_identifiers.insert(identifier, block_spot);
+                            }
+                        }
+
+                        ExprType::Reference(original, original_type) => match original_type {
+                            ImmediateType::Value => {
+                                self.value_identifiers.insert(identifier, original);
+                            },
+                            ImmediateType::Block => {
+                                self.block_identifiers.insert(identifier, original);
+                            }
                         }
                     };
                     return Ok(());
@@ -311,6 +327,15 @@ impl Parser {
     }
 
     fn expr(&mut self, value_spot: usize, block_spot: usize) -> Result<ExprType, Error> {
+        if let TokenType::TellOp = self.curr_token.token_type {
+            self.tell(value_spot)?;
+            return Ok(ExprType::Immediate(ImmediateType::Value));
+        }
+
+        if let TokenType::Identifier(identifier) = self.curr_token.token_type {
+        
+        }
+
         todo!()
     }
 
@@ -318,7 +343,7 @@ impl Parser {
         todo!()
     }
 
-    fn tell(&mut self) -> Result<(), Error> {
+    fn tell(&mut self, value_spot: usize) -> Result<(), Error> {
         todo!()
     }
 
