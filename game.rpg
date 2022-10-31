@@ -1,0 +1,10 @@
+"Hello World"
+
+"Do you wanna play?" {
+    "yes" => {
+        "Yoo! We can now start"
+    }
+    "no" => {
+        "Bruh!"
+    }
+}

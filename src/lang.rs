@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, vec, collections::HashMap};
 
 use crate::models::*;
 use TokenType::*;
@@ -23,27 +23,68 @@ impl Lexer {
                 break;
             }
 
+            // AskOp,                  // ?
+            // TellOp,                 // -
+            // ParOpen,                // (
+            // ParClose,               // )
+            // BranchOp,               // #
+            // LambdaOp,               // =>
+            // BrackOpen,              // {
+            // BrackClose,             // }
+            // AssignmentOp,           // :=
+            // Identifier(String),     // <a-zA-Z0-9>
+            // StringLiteral(String),  // ""
+
             let current_char = lexer.source.chars().nth(lexer.index).unwrap();
+            let position = Position { line: lexer.line, column: lexer.column };
             match current_char {
+                '?'  => tokens.push(Token{
+                    position, token_type: AskOp,
+                }),
+
+                '-'  => tokens.push(Token{
+                    position, token_type: TellOp,
+                }),
+
+                '('  => tokens.push(Token{
+                    position, token_type: ParOpen,
+                }),
+
+                ')'  => tokens.push(Token{
+                    position, token_type: ParClose,
+                }),
+
+                '#'  => tokens.push(Token{
+                    position, token_type: BranchOp,
+                }),
+
+                '='  => tokens.push(lexer.lex_lambda_op()?),
+
                 '{'  => tokens.push(Token{
-                    position: Position { line: lexer.line, column: lexer.column },
-                    token_type: BrackOpen,
+                    position, token_type: BrackOpen,
                 }),
+
                 '}'  => tokens.push(Token{
-                    position: Position { line: lexer.line, column: lexer.column },
-                    token_type: BrackClose,
+                    position, token_type: BrackClose,
                 }),
-                '='  => tokens.push(lexer.lex_lambda_operator()?),
-                '?'  => tokens.push(lexer.lex_identifier()?),
-                '"'  => tokens.push(lexer.lex_strings()?),
+
+                ':'  => tokens.push(lexer.lex_assignment_op()?),
+                
+                'a'..='z' | 'A'..='Z' | '0'..='9' => tokens.push(lexer.lex_identifier()?),
+
+                '"'  => tokens.push(lexer.lex_string_literal()?),
+
                 '\n' => {
                     lexer.line += 1;
                     lexer.column = 0;
                 },
+
                 ' ' | '\t' => (), // Ignoring white spaces
+
                 _ => return Err(Error::lex_error(
+                    // TODO: InvalidChar Error
                     InvalidSyntax, &lexer
-                )),
+                ))
             }
             lexer.index += 1;
             lexer.column += 1;
@@ -53,7 +94,7 @@ impl Lexer {
     }
 
     // `=>`
-    fn lex_lambda_operator(&mut self) -> Result<Token, Error> {
+    fn lex_lambda_op(&mut self) -> Result<Token, Error> {
         self.index += 1;
         self.column += 1;
         if self.index >= self.source.len() {
@@ -76,62 +117,64 @@ impl Lexer {
 
         Ok(Token {
             position: Position { line: self.line, column: self.column - 1 },
-            token_type: LambdaOperator,
+            token_type: LambdaOp,
         })
     }
 
-    // `?<*digit>`
-    fn lex_identifier(&mut self) -> Result<Token, Error> {
-        let start_column = self.column;
+    // `:=`
+    fn lex_assignment_op(&mut self) -> Result<Token, Error> {
         self.index += 1;
         self.column += 1;
-
         if self.index >= self.source.len() {
             // For error to point at the right location
             self.index -= 1;
             self.column -= 1;
 
             return Err(Error::lex_error(
-                Missing("identifier number after '?'".to_string()),
+                Missing("'=' after ':', for AssignmentOp (':=')".to_string()),
                 self
             ))
         }
 
-        let mut letter = self.source.chars().nth(self.index).unwrap();
-        let mut number = String::new();
-        while DIGITS.contains(&letter) {
-            number.write_char(letter).unwrap();
-
-            self.index += 1;
-            self.column += 1;
-            if self.index >= self.source.len() {
-                break;
-            }
-
-            letter = self.source.chars().nth(self.index).unwrap();
-        }
-        // Unchecking the current_char for the next lex iteration
-        self.index -= 1;
-        self.column -= 1;
-
-        if number.is_empty() {
+        if self.source.chars().nth(self.index).unwrap() != '=' {
             return Err(Error::lex_error(
-                Expected("identifier number after '?'".to_string()),
+                Expected("'=' after ':', for AssignmentOp (':=')".to_string()),
                 self
             ))
         }
 
-        // `number` would always be valid int
-        // as we parsed it ourselves before
-        let number: usize = number.parse().unwrap();
         Ok(Token {
-            position: Position { line: self.line, column: start_column},
-            token_type: Identifier(number),
+            position: Position { line: self.line, column: self.column - 1 },
+            token_type: AssignmentOp,
         })
     }
 
-    // `"<*.-">"`
-    fn lex_strings(&mut self) -> Result<Token, Error> {
+    // `*<a-zA-Z0-9>`
+    fn lex_identifier(&mut self) -> Result<Token, Error> {
+        let start_column = self.column;
+        let identifier = String::new();
+
+        let mut letter = self.source.chars().nth(self.index).unwrap();
+        while
+            ('a'..='z').contains(&letter) |
+            ('A'..='Z').contains(&letter) |
+            ('0'..='9').contains(&letter)
+        {
+            identifier.write_char(letter).unwrap();
+
+            self.index += 1;
+            self.column += 1;
+            if self.index >= self.source.len() { break; }
+            let mut letter = self.source.chars().nth(self.index).unwrap();
+        }
+        Ok(Token {
+            position: Position { line: self.line, column: start_column},
+            token_type: Identifier(identifier),
+        })
+    }
+
+    // `"*<.-">"`
+    fn lex_string_literal(&mut self) -> Result<Token, Error> {
         let start_line = self.line;
         let start_column = self.column;
 
@@ -180,39 +223,149 @@ impl Lexer {
     }
 }
 
+enum ExprType{
+    Immediate(ImmediateType),
+    Reference(usize, ImmediateType),
+}
+
+enum ImmediateType {
+    Block,
+    Value,
+}
+
+// TODO: Implement parser according to the new grammar
 impl Parser {
     fn new(tokens: ParseableTokens) -> Self {
         // Global variables for different parts of the Parser
         Self {
             tokens,
+            byte_code: vec![],
             curr_token: Token {
                 position: Position { line: 0, column: 0 },
                 token_type: BrackOpen,
             },
-            identifiers: vec![],
+            value_identifiers: HashMap::new(),
+            block_identifiers: HashMap::new(),
         }
     }
 
-    fn parse(tokens: Vec<Token>) -> Result<Vec<Message>, Error> {
-        let mut messages: Vec<Message> = Vec::new();
+    fn parse(tokens: Vec<Token>) -> Result<Vec<OpCode>, Error> {
         let mut parser = Parser::new(tokens.into_iter().peekable());
 
-        // Looping through all tokens
-        loop {
-            parser.curr_token = match parser.tokens.next() {
-                Some(token) => token,
-                None => break,
-            };
-
-            messages.push(parser.handle_token()?)
+        if let Some(token) = parser.tokens.next() {
+            parser.curr_token = token;
+            parser.source()?;
         }
 
-        Ok(messages)
+        Ok(parser.byte_code)
+    }
+
+    fn source(&mut self) -> Result<(), Error> {
+        loop {
+            if let Some(statement_token) = self.tokens.next() {
+                self.curr_token = statement_token;
+                self.statement()?;
+            }
+            else {
+                break;
+            }
+        }
+
+        Ok(())
+
+    }
+
+    fn statement(&mut self) -> Result<(), Error> {
+        if let TokenType::TellOp = self.curr_token.token_type {
+            self.tell(usize::MAX)?;
+            return Ok(());
+        }
+        if let TokenType::BranchOp = self.curr_token.token_type {
+            self.branch()?;
+            return Ok(());
+        }
+
+        if let TokenType::Identifier(identifier) = self.curr_token.token_type {
+            if let Some(_) = self.tokens.next_if(|x| x.token_type == AssignmentOp) {
+                if let Some(statement_token) = self.tokens.next() {
+                    self.curr_token = statement_token;
+
+                    let value_spot = self.value_identifiers.len();
+                    let block_spot = self.block_identifiers.len();
+                    match self.expr(value_spot, block_spot)? {
+                        ExprType::Immediate(immediate) => match immediate {
+                            ImmediateType::Value => {
+                                self.value_identifiers.insert(identifier, value_spot);
+                            },
+                            ImmediateType::Block => {
+                                self.block_identifiers.insert(identifier, block_spot);
+                            }
+                        }
+
+                        ExprType::Reference(original, original_type) => match original_type {
+                            ImmediateType::Value => {
+                                self.value_identifiers.insert(identifier, original);
+                            },
+                            ImmediateType::Block => {
+                                self.block_identifiers.insert(identifier, original);
+                            }
+                        }
+                    };
+                    return Ok(());
+                }
+                else {
+                    return Err(Error::parse_error(
+                        Missing("expression for variable assignment".to_string()),
+                        self
+                    ));
+                }
+            }
+        }
+
+        self.expr(usize::MAX, usize::MAX)?;
+        Ok(())
+    }
+
+    fn expr(&mut self, value_spot: usize, block_spot: usize) -> Result<ExprType, Error> {
+        if let TokenType::TellOp = self.curr_token.token_type {
+            self.tell(value_spot)?;
+            return Ok(ExprType::Immediate(ImmediateType::Value));
+        }
+
+        if let TokenType::Identifier(identifier) = self.curr_token.token_type {
+        
+        }
+
+        todo!()
+    }
+
+    fn ask() {
+        todo!()
+    }
+
+    fn tell(&mut self, value_spot: usize) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn branch(&mut self) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn branches() {
+        todo!()
+    }
+
+    fn block() {
+        todo!()
+    }
+
+    fn arguments() {
+        todo!()
     }
 
     // StringLiteral
     // Identifer
-    fn handle_token(&mut self) -> Result<Message, Error> {
+    fn handle_token(&mut self) -> Result<OpCode, Error> {
         match self.curr_token.token_type {
             StringLiteral(_) => self.parse_strings(),
             Identifier(_) => self.parse_identifier(),
@@ -227,7 +380,7 @@ impl Parser {
 
     // StringLiteral BrackOpen
     // StringLiteral
-    fn parse_strings(&mut self) -> Result<Message, Error> {
+    fn parse_strings(&mut self) -> Result<OpCode, Error> {
         self.validate_string()?;
         let message = match self.curr_token.token_type.clone() {
             StringLiteral(m) => m,
@@ -236,16 +389,16 @@ impl Parser {
 
         if let Some(_) =
             self.tokens.next_if(|x| x.token_type == BrackOpen) {
-                self.parse_branch(message)
+                self.parse_branch(message);
         }
         else {
-            Ok(Message::new_info(message))
         }
+        unreachable!()
 
     }
 
     // Identifer StringLiteral
-    fn parse_identifier(&mut self) -> Result<Message, Error> {
+    fn parse_identifier(&mut self) -> Result<OpCode, Error> {
         let save_id = match self.curr_token.token_type {
             Identifier(m) => m,
             _ => unreachable!(),
@@ -270,12 +423,11 @@ impl Parser {
             ))
         };
 
-        self.identifiers.push(save_id);
-        Ok(Message::new_question(question, save_id))
+        unreachable!()
     }
 
     // BrackOpen +(StringLiteral LambdaOperator BrackOpen *. BrackClose) BrackClose
-    fn parse_branch(&mut self, question: String) -> Result<Message, Error> {
+    fn parse_branch(&mut self, question: String) -> Result<OpCode, Error> {
         let mut branches: Vec<Branch> = Vec::new();
 
         // Looping through all choices of the branch
@@ -309,12 +461,10 @@ impl Parser {
                     self
                 ))
             };
-            if node_delaration.token_type != LambdaOperator {
                 return Err(Error::parse_error(
                     Expected("'=>' (Branch Node declaration)".to_string()),
                     self
                 ))
-            };
 
             let node_starting = if let Some(token) = self.tokens.next() {
                 self.curr_token = token.clone();
@@ -332,8 +482,8 @@ impl Parser {
                 ))
             };
 
-            let mut branch_node_block: Vec<Message> = Vec::new();
-            let tmp = self.identifiers.clone();
+            let mut branch_node_block: Vec<OpCode> = Vec::new();
+            let tmp = self.value_identifiers.clone();
 
             // Looping through all tokens inside the branch body
             // to recursively parse them all
@@ -350,12 +500,12 @@ impl Parser {
 
                 branch_node_block.push(self.handle_token()?);
             }
-            self.identifiers = tmp;
+            self.value_identifiers = tmp;
 
             branches.push(Branch::new(branch_name, branch_node_block))
         }
 
-        Ok(Message::new_branch(question, branches))
+        Ok(OpCode::new_branch(question, branches))
     }
 
     // Checking if StringLiteral have valid identifier references
@@ -382,7 +532,7 @@ impl Parser {
 
                 if !number.is_empty() {
                     let number: usize = number.parse().unwrap();
-                    if !self.identifiers.contains(&number) {
+                    if !self.value_identifiers.contains(&number) {
                         //"Identifer '{}' used in StringLiteral without delaration",
                         return Err(Error::parse_error(
                             InvalidIdentifier(number),
@@ -398,7 +548,7 @@ impl Parser {
     }
 }
 
-pub fn compile(source: String) -> Result<Vec<Message>, Error> {
+pub fn compile(source: String) -> Result<Vec<OpCode>, Error> {
     let tokens = Lexer::lex(source)?;
     let messages = Parser::parse(tokens)?;
 

@@ -2,21 +2,36 @@ pub use crate::*;
 use models::DIGITS;
 
 pub fn start_game(game: &mut Game) {
-    for message in game.messages.clone() {
-        handle_message(&message, game);
+    let byte_code = game.byte_code.clone();
+    let mut iptr = 0;
+    loop {
+        let is_end = run(byte_code[iptr], &mut iptr, game);
+        if is_end {
+            break;
+        }
     }
 }
 
-// Decoding instructions to different functions
-fn handle_message(message: &Message, game: &mut Game) {
-    match message {
-        Message::INFO(info) => info_message(info, game),
-        Message::QUESTION(question, id) => question_message(question, id, game),
-        Message::BRANCH(question, branches) => branch_message(question, branches, game),
+fn run(op_code: OpCode, iptr: &mut usize, game: &mut Game) -> bool {
+    // Decoding instructions to different functions
+    match op_code {
+        OpCode::NOP => (),
+        OpCode::END => return true,
+        OpCode::JMP(ptr) => {
+            *iptr = ptr;
+            return false;
+        },
+        OpCode::TELL(info) => msg_tell(info, game),
+        OpCode::ASK(question, id) => msg_question(question, id, game),
+        OpCode::BRANCH(question, branches) =>
+            return run(msg_branch(question, branches, game), iptr, game),
     }
+
+    *iptr += 1;
+    false
 }
 
-fn info_message(info: &String, game: &Game) {
+fn msg_tell(info: String, game: &Game) {
     tell_info(info, game);
     game.window.addstr("\n\nPress any key to continue");
     game.window.refresh();
@@ -28,28 +43,28 @@ fn info_message(info: &String, game: &Game) {
     curs_set(1);
 }
 
-fn question_message(question: &String, id: &usize, game: &mut Game) {
+fn msg_question(question: String, id: Option<usize>, game: &mut Game) {
     tell_info(question, game);
 
     game.window.addstr("\n\n>");
     let mut responce = String::new();
     scan(&game.window, &mut responce);
 
-    game.states.insert(*id, responce);
+    if let Some(id) = id {
+        game.states.insert(id, responce);
+    }
 }
 
-fn branch_message(question: &String, branches: &Vec<Branch>, game: &mut Game) {
+fn msg_branch(question: String, branches: Vec<Branch>, game: &mut Game) -> OpCode {
     tell_info(question, game);
     game.window.addstr("\n\n");
 
     let branch = branch_selection(branches, game);
 
-    for message in branch.messages.iter() {
-        handle_message(&message, game);
-    }
+    branch.handler
 }
 
-fn tell_info(info: &String, game: &Game) {
+fn tell_info(info: String, game: &Game) {
     game.window.clear();
     game.window.mv(0, 0);
 
@@ -63,7 +78,7 @@ fn tell_info(info: &String, game: &Game) {
 }
 
 // Parsing StringLiteral to find an identifer reference
-fn parse(info: &String, game: &Game) -> String {
+fn parse(info: String, game: &Game) -> String {
     let mut i = 0;
     let mut result = String::new();
     while i < info.len() {
@@ -81,7 +96,7 @@ fn parse(info: &String, game: &Game) -> String {
 
 // Parsing identifer reference inside a StringLiteral
 // And replacing it with it's value from game.states (runtime identifer pool)
-fn handle_states(i: &mut usize, info: &String, game: &Game) -> String {
+fn handle_states(i: &mut usize, info: String, game: &Game) -> String {
     *i += 1;
     let mut result = String::new();
     if *i < info.len() {
@@ -111,7 +126,7 @@ fn handle_states(i: &mut usize, info: &String, game: &Game) -> String {
     result
 }
 
-fn branch_selection<'a>(branches: &'a Vec<Branch>, game: &Game) -> &'a Branch {
+fn branch_selection(branches: Vec<Branch>, game: &Game) -> &Branch {
     curs_set(0);
     noecho();
     let mut selection = 0;

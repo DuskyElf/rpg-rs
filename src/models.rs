@@ -8,52 +8,41 @@ pub static DIGITS: [char; 10] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0
 
 pub struct Game {
     pub window: Window,
-    pub messages: Vec<Message>,
+    pub byte_code: Vec<OpCode>,
     pub states: HashMap<usize, String>,
 }
 
 impl Game {
-    pub fn new(window: Window, messages: Vec<Message>) -> Self {
+    pub fn new(window: Window, byte_code: Vec<OpCode>) -> Self {
         Self {
             window,
-            messages,
+            byte_code,
             states: HashMap::new(),
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum Message {
-    INFO(String),
-    QUESTION(String, usize),
+pub enum OpCode {
+    NOP,
+    END,
+    JMP(usize),
+    TELL(String),
+    ASK(String, Option<usize>),
     BRANCH(String, Vec<Branch>),
-}
-
-impl Message {
-    pub fn new_info(info: String) -> Self {
-        Self::INFO(info)
-    }
-
-    pub fn new_question(question: String, save_id: usize) -> Self {
-        Self::QUESTION(question, save_id)
-    }
-
-    pub fn new_branch(question: String, options: Vec<Branch>) -> Self {
-        Self::BRANCH(question, options)
-    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Branch {
     pub option: String,
-    pub messages: Vec<Message>,
+    pub handler: OpCode,
 }
 
 impl Branch {
-    pub fn new(option: String, messages: Vec<Message>) -> Self {
+    pub fn new(option: String, handler: OpCode) -> Self {
         Self {
             option,
-            messages,
+            handler,
         }
     }
 }
@@ -66,10 +55,16 @@ pub struct Position {
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum TokenType {
+    AskOp,                  // ?
+    TellOp,                 // -
+    ParOpen,                // (
+    ParClose,               // )
+    BranchOp,               // #
+    LambdaOp,               // =>
     BrackOpen,              // {
     BrackClose,             // }
-    LambdaOperator,         // =>
-    Identifier(usize),      // ?0
+    AssignmentOp,           // :=
+    Identifier(String),     // <a-zA-Z0-9>
     StringLiteral(String),  // ""
 }
 
@@ -89,8 +84,10 @@ pub struct Token {
 pub type ParseableTokens = Peekable<IntoIter<Token>>;
 pub struct Parser {
     pub tokens: ParseableTokens,
+    pub byte_code: Vec<OpCode>,
     pub curr_token: Token,
-    pub identifiers: Vec<usize>,
+    pub value_identifiers: HashMap<String, usize>,
+    pub block_identifiers: HashMap<String, usize>,
 }
 
 pub enum ErrorType {
