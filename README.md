@@ -1,5 +1,5 @@
 # Terminal Based Rpg Game (Engine)
-### In early stages of development
+### In it's early stages of development
 
 ### Quick Start
 ```shell
